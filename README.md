@@ -17,9 +17,9 @@ npm run dev                  # http://localhost:3000
 
 ## Deploy ke Vercel
 
-Repositori: https://github.com/yoghisetiawan/laporan_awal — setiap `git push` ke `main` otomatis men-deploy ulang.
+Repositori: https://github.com/yoghisetiawan/pembuat_laporan — setiap `git push` ke `main` otomatis men-deploy ulang.
 
-1. vercel.com/new → **Import** repositori `laporan_awal`.
+1. vercel.com/new → **Import** repositori `pembuat_laporan`.
 2. **Environment Variables**:
    - `GEMINI_API_KEY` — wajib.
    - `APP_PASSWORD` — sangat disarankan; tanpa ini siapa pun yang tahu alamatnya bisa memakai kuota Gemini Anda.
