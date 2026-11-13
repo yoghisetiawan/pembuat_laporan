@@ -1,6 +1,6 @@
 import "server-only";
 import type { Analysis, Depth, GenerateRequest, PipelineEvent, Review, StageId } from "@/lib/types";
-import { getTemplate } from "@/lib/templates";
+import { getTemplate, type TemplateDef } from "@/lib/templates";
 import { newUsage, runStructured, type Effort } from "./client";
 import { AnalysisSchema, ReviewSchema, draftSchema } from "./schemas";
 import {
@@ -17,6 +17,25 @@ const DEPTH: Record<Depth, { analysis: Effort; draft: Effort; review: Effort; ma
   standar: { analysis: "medium", draft: "medium", review: "medium", maxRevisions: 1 },
   mendalam: { analysis: "high", draft: "high", review: "high", maxRevisions: 2 },
 };
+
+/**
+ * Model kadang menulis daftar bernomor dalam satu baris ("1. ... 2. ...").
+ * Pecah menjadi satu butir per baris agar editor & DOCX menampilkannya benar.
+ */
+export function normalizeDraft(t: TemplateDef, draft: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = { ...draft };
+  for (const f of t.fields) {
+    let v = (out[f.key] ?? "").replace(/\r/g, "").trim();
+    if (f.kind === "list" && /^1[.)]\s/.test(v)) {
+      // pisahkan sebelum "2. ", "3. ", ... (bukan angka desimal seperti 09.00 atau 15.000)
+      v = v.replace(/[ \t]+(?=(?:[2-9]|[1-9]\d)[.)]\s)/g, "\n");
+      // sub-butir "a. b. c." yang menempel pada baris yang sama
+      v = v.replace(/[ \t]+(?=[a-h][.)]\s+[A-Z])/g, "\n   ");
+    }
+    out[f.key] = v;
+  }
+  return out;
+}
 
 function avgScore(r: Review) {
   const s = r.skor;
@@ -75,6 +94,7 @@ export async function runPipeline(
     schema,
     effort: cfg.draft,
   })) as Record<string, string>;
+  draft = normalizeDraft(t, draft);
   emit({ type: "draft", fields: draft });
   emit({ type: "stage", stage: "draf", status: "done", label: "Draf tersusun" });
 
@@ -113,6 +133,7 @@ export async function runPipeline(
       schema,
       effort: cfg.draft,
     })) as Record<string, string>;
+    draft = normalizeDraft(t, draft);
     emit({ type: "draft", fields: draft });
     emit({ type: "stage", stage: "revisi", status: "done", label: "Revisi diterapkan" });
   }

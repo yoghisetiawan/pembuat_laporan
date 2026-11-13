@@ -88,7 +88,7 @@ export const TEMPLATES: TemplateDef[] = [
       { key: "pendahuluan_sumber", label: "1. Sumber Informasi", kind: "line", section: "PENDAHULUAN", guide: "Biasanya 'Ada pada pelapor.' kecuali sumber menyebut lain." },
       { key: "pendahuluan_hubungan", label: "2. Hubungan Sumber dengan Sasaran", kind: "line", section: "PENDAHULUAN", guide: "Mis. 'Langsung, sumber merupakan warga sekitar lokasi.' / 'Tidak langsung'." },
       { key: "pendahuluan_cara", label: "3. Cara Mendapatkan Informasi", kind: "line", section: "PENDAHULUAN", guide: "Mis. 'Pengamatan langsung (observasi) dan wawancara (elisitasi).'" },
-      { key: "pendahuluan_waktu", label: "4. Waktu Mendapatkan Informasi", kind: "line", section: "PENDAHULUAN", guide: "Hari, tanggal, pukul WIB. Jika tidak ada di sumber, gunakan tanggal laporan." },
+      { key: "pendahuluan_waktu", label: "4. Waktu Mendapatkan Informasi", kind: "line", section: "PENDAHULUAN", guide: "Hari, tanggal, dan pukul WIB saat informasi diperoleh SESUAI sumber. Jangan mengarang jam: bila jam perolehan tidak disebut, gunakan waktu kejadian di sumber, atau cukup hari dan tanggal laporan tanpa jam." },
       { key: "pendahuluan_nilai", label: "5. Nilai Informasi", kind: "line", section: "PENDAHULUAN", guide: "Format 'X – N' (mis. 'B – 2') sesuai penilaian sumber." },
       { key: "perihal", label: "Perihal", kind: "line", section: "PERIHAL", guide: "Satu kalimat padat dimulai 'Tentang ...' yang menggambarkan inti informasi, termasuk lokasi." },
       FAKTA,
