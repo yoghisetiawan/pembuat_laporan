@@ -138,7 +138,12 @@ export interface ReportRecord {
   analysis: Analysis | null;
   review: Review | null;
   sourcesSummary: string;
-  attachments?: Attachment[]; // hanya dokumentasi (untuk lampiran DOCX)
+  attachments?: Attachment[]; // semua lampiran (foto, foto dokumen, PDF) agar bisa digenerate ulang
+  // Sumber lain agar "Generate ulang" dari Riwayat tetap lengkap (tidak ada pada rekaman lama)
+  text?: string;
+  transcript?: string;
+  instruction?: string;
+  depth?: Depth;
 }
 
 export interface ReportMeta {

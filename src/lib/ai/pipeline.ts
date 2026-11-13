@@ -37,6 +37,10 @@ export function normalizeDraft(t: TemplateDef, draft: Record<string, string>): R
   return out;
 }
 
+// Vercel memutus fungsi setelah 300 detik. Sisakan ruang agar hasil akhir
+// selalu sempat terkirim, walau revisi tambahan harus dilewati.
+const TIME_BUDGET_S = Number(process.env.PIPELINE_TIME_BUDGET_S) || 270;
+
 function avgScore(r: Review) {
   const s = r.skor;
   return (s.akurasi + s.kelengkapan + s.kejelasan + s.kepatuhan_format + s.kedalaman_analisis) / 5;
@@ -59,6 +63,14 @@ export async function runPipeline(
   const usage = newUsage();
   const system = systemBlocks();
   const sources = sourceBlocks(req, t);
+  const started = Date.now();
+  const elapsed = () => (Date.now() - started) / 1000;
+  const timed = async <T,>(fn: () => Promise<T>): Promise<[T, number]> => {
+    const s0 = Date.now();
+    const out = await fn();
+    return [out, (Date.now() - s0) / 1000];
+  };
+  const fits = (estimateS: number) => elapsed() + estimateS < TIME_BUDGET_S;
 
   const hooks = (stage: StageId) => ({
     onThinking: (text: string) => emit({ type: "thinking", stage, text }),
@@ -88,31 +100,40 @@ export async function runPipeline(
   // 2. Draf
   emit({ type: "stage", stage: "draf", status: "start", label: `Menyusun draf ${t.title}` });
   const schema = draftSchema(t);
-  let draft = (await runStructured({
-    ...hooks("draf"),
-    content: [...sources, draftInstruction(t, analysis)],
-    schema,
-    effort: cfg.draft,
-  })) as Record<string, string>;
+  let [draft, draftS] = (await timed(() =>
+    runStructured({
+      ...hooks("draf"),
+      content: [...sources, draftInstruction(t, analysis)],
+      schema,
+      effort: cfg.draft,
+    }),
+  )) as [Record<string, string>, number];
   draft = normalizeDraft(t, draft);
   emit({ type: "draft", fields: draft });
   emit({ type: "stage", stage: "draf", status: "done", label: "Draf tersusun" });
 
   // 3–4. Verifikasi & revisi
   let review: Review | null = null;
+  let reviewS = draftS * 0.8; // perkiraan awal sebelum ada pengukuran
   for (let round = 0; round <= cfg.maxRevisions; round++) {
+    if (!fits(reviewS)) {
+      emit({ type: "stage", stage: "verifikasi", status: "done", label: "Verifikasi dilewati — batas waktu server", detail: "Periksa draf secara manual." });
+      break;
+    }
     emit({
       type: "stage",
       stage: "verifikasi",
       status: "start",
       label: round === 0 ? "Memverifikasi draf terhadap sumber" : `Verifikasi ulang (putaran ${round + 1})`,
     });
-    review = (await runStructured({
-      ...hooks("verifikasi"),
-      content: [...sources, reviewInstruction(t, analysis, draft)],
-      schema: ReviewSchema,
-      effort: cfg.review,
-    })) as Review;
+    [review, reviewS] = (await timed(() =>
+      runStructured({
+        ...hooks("verifikasi"),
+        content: [...sources, reviewInstruction(t, analysis, draft)],
+        schema: ReviewSchema,
+        effort: cfg.review,
+      }),
+    )) as [Review, number];
     emit({ type: "review", round, data: review });
     const score = Math.round(avgScore(review));
     emit({
@@ -127,14 +148,28 @@ export async function runPipeline(
     const needs =
       review.perlu_revisi || review.temuan.some((f) => f.tingkat !== "minor" || f.jenis === "klaim_tanpa_dasar");
     if (!needs || round === cfg.maxRevisions) break;
+    // Revisi hanya dimulai bila revisi + verifikasi ulang masih muat dalam batas waktu
+    if (!fits(draftS + reviewS)) {
+      emit({
+        type: "stage",
+        stage: "revisi",
+        status: "done",
+        label: "Revisi otomatis dilewati — batas waktu server",
+        detail: "Gunakan tombol AI → Perbaiki temuan pada bagian yang ditandai.",
+      });
+      break;
+    }
 
     emit({ type: "stage", stage: "revisi", status: "start", label: `Merevisi ${review.temuan.length} temuan` });
-    draft = (await runStructured({
-      ...hooks("revisi"),
-      content: [...sources, revisionInstruction(t, draft, review)],
-      schema,
-      effort: cfg.draft,
-    })) as Record<string, string>;
+    const current: Review = review;
+    [draft, draftS] = (await timed(() =>
+      runStructured({
+        ...hooks("revisi"),
+        content: [...sources, revisionInstruction(t, draft, current)],
+        schema,
+        effort: cfg.draft,
+      }),
+    )) as [Record<string, string>, number];
     draft = normalizeDraft(t, draft);
     emit({ type: "draft", fields: draft });
     emit({ type: "stage", stage: "revisi", status: "done", label: "Revisi diterapkan" });

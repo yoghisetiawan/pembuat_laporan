@@ -100,6 +100,7 @@ export default function App() {
 
   const template = getTemplate(templateId);
   const metaRef = useRef(meta);
+  const createdAtRef = useRef<string | null>(null); // tanggal dibuat laporan yang sedang dibuka
   useEffect(() => {
     metaRef.current = meta;
   }, [meta]);
@@ -146,14 +147,18 @@ export default function App() {
         id,
         templateId,
         title,
-        createdAt: new Date().toISOString(),
+        createdAt: createdAtRef.current ?? new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         meta: m,
         fields: f,
         analysis: a,
         review: r,
         sourcesSummary: parts.join(", "),
-        attachments: attachments.filter((x) => x.role === "dokumentasi"),
+        attachments,
+        text,
+        transcript,
+        instruction,
+        depth,
       };
       try {
         await saveReport(rec);
@@ -161,12 +166,19 @@ export default function App() {
         await saveReport({ ...rec, attachments: [] }).catch(() => {});
       }
     },
-    [templateId, attachments, transcript, text],
+    [templateId, attachments, transcript, text, instruction, depth],
   );
 
+  // Simpan otomatis hanya bila isi laporan benar-benar berubah (bukan sekadar dibuka)
+  const savedSnapRef = useRef("");
   useEffect(() => {
     if (!recordId || running || !Object.keys(fields).length) return;
-    const h = setTimeout(() => persist(recordId, fields, analysis, review, meta), 800);
+    const snap = JSON.stringify([recordId, fields, meta]);
+    if (snap === savedSnapRef.current) return;
+    const h = setTimeout(() => {
+      savedSnapRef.current = snap;
+      persist(recordId, fields, analysis, review, meta);
+    }, 800);
     return () => clearTimeout(h);
   }, [fields, meta, recordId, running, analysis, review, persist]);
 
@@ -206,6 +218,7 @@ export default function App() {
           setAnalysis(e.analysis);
           setStages((s) => s.map((st) => (st.status === "pending" ? { ...st, status: "done", label: "Tidak diperlukan — draf lolos verifikasi" } : st)));
           setRunning(false);
+          savedSnapRef.current = JSON.stringify([id, e.fields, metaRef.current]);
           persist(id, e.fields, e.analysis, e.review, metaRef.current);
           const cached = e.usage.cacheRead;
           notify(`Laporan selesai • ${e.usage.calls} panggilan AI${cached ? ` • ${Math.round(cached / 1000)}k token dari cache` : ""}`);
@@ -227,7 +240,9 @@ export default function App() {
       notify("Masukkan minimal satu sumber data lapangan.", true);
       return;
     }
-    const id = clar.length && recordId ? recordId : uid();
+    const sameRecord = Boolean(clar.length && recordId);
+    const id = sameRecord && recordId ? recordId : uid();
+    if (!sameRecord) createdAtRef.current = new Date().toISOString();
     setRecordId(id);
     setPhase("workspace");
     setStages(INITIAL_STAGES);
@@ -340,9 +355,17 @@ export default function App() {
     setAnalysis(r.analysis);
     setReview(r.review);
     setRecordId(r.id);
+    createdAtRef.current = r.createdAt;
+    savedSnapRef.current = JSON.stringify([r.id, r.fields, r.meta]);
     setAttachments(r.attachments ?? []);
-    setText("");
-    setTranscript("");
+    setText(r.text ?? "");
+    setTranscript(r.transcript ?? "");
+    setInstruction(r.instruction ?? "");
+    if (r.depth) setDepth(r.depth);
+    setPrevious(null);
+    if (r.text === undefined && r.transcript === undefined) {
+      notify("Laporan lama: sumber asli tidak tersimpan. Untuk generate ulang, unggah/tempel sumbernya lagi lewat tombol Sumber.");
+    }
     setChat([]);
     setClarifications([]);
     setStages(INITIAL_STAGES.map((s) => ({ ...s, status: "done" })));
