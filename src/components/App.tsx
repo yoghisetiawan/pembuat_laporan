@@ -14,16 +14,13 @@ import {
   Sparkles,
   Sun,
   Wand2,
-  LogOut,
-  Cloud,
-  HardDrive,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildDocx, toPlainText } from "@/lib/docx";
 import { download, uid } from "@/lib/files";
 import { readEvents } from "@/lib/sse";
-import { currentUserEmail, hydrateAttachments, loadProfile, saveProfile, saveReport, signOut, storageMode } from "@/lib/storage";
+import { loadProfile, saveProfile, saveReport } from "@/lib/storage";
 import { defaultNumber, getTemplate } from "@/lib/templates";
 import type {
   Analysis,
@@ -50,7 +47,7 @@ import TemplatePicker from "./TemplatePicker";
 import { Badge, Button, Toast, cx, scoreTone } from "./ui";
 
 type View = "generator" | "riwayat" | "pengaturan";
-type Health = { anthropic: boolean; model: string; transcription: boolean; supabase: boolean };
+type Health = { anthropic: boolean; model: string; transcription: boolean };
 
 const QUICK_INSTRUCTIONS = [
   "Fokus pada potensi gangguan kamtibmas",
@@ -100,8 +97,6 @@ export default function App() {
   const [transform, setTransform] = useState<{ title: string; text: string | null } | null>(null);
   const [exporting, setExporting] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const template = getTemplate(templateId);
   const metaRef = useRef(meta);
@@ -111,12 +106,11 @@ export default function App() {
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains("dark"));
-    loadProfile().then(setProfile);
-    currentUserEmail().then(setUserEmail);
+    setProfile(loadProfile());
     fetch("/api/health")
       .then((r) => r.json())
       .then(setHealth)
-      .catch(() => setHealth({ anthropic: false, model: "-", transcription: false, supabase: false }));
+      .catch(() => setHealth({ anthropic: false, model: "-", transcription: false }));
   }, []);
 
   const notify = useCallback((msg: string, err?: boolean) => {
@@ -161,16 +155,13 @@ export default function App() {
         sourcesSummary: parts.join(", "),
         attachments: attachments.filter((x) => x.role === "dokumentasi"),
       };
-      setSaveState("saving");
       try {
         await saveReport(rec);
-        setSaveState("saved");
-      } catch (e) {
-        setSaveState("error");
-        notify((e as Error).message, true);
+      } catch {
+        await saveReport({ ...rec, attachments: [] }).catch(() => {});
       }
     },
-    [templateId, attachments, transcript, text, notify],
+    [templateId, attachments, transcript, text],
   );
 
   useEffect(() => {
@@ -350,10 +341,6 @@ export default function App() {
     setReview(r.review);
     setRecordId(r.id);
     setAttachments(r.attachments ?? []);
-    if (r.attachments?.some((a) => !a.data && a.path)) {
-      hydrateAttachments(r.attachments).then(setAttachments).catch(() => notify("Sebagian foto dokumentasi gagal dimuat.", true));
-    }
-    setSaveState("saved");
     setText("");
     setTranscript("");
     setChat([]);
@@ -418,16 +405,6 @@ export default function App() {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             {health && !health.anthropic && <Badge tone="red">API key belum diatur</Badge>}
-            {userEmail && (
-              <div className="hidden items-center gap-1 text-xs text-slate-500 md:flex">
-                <span className="max-w-48 truncate">{userEmail}</span>
-              </div>
-            )}
-            {userEmail && (
-              <button onClick={() => signOut()} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10" aria-label="Keluar" title="Keluar">
-                <LogOut className="h-4 w-4" />
-              </button>
-            )}
             <button onClick={toggleTheme} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10" aria-label="Ganti tema">
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -441,14 +418,10 @@ export default function App() {
           <SettingsView
             profile={profile}
             health={health}
-            onSave={async (p) => {
+            onSave={(p) => {
               setProfile(p);
-              try {
-                await saveProfile(p);
-                notify(storageMode === "supabase" ? "Profil satuan disimpan ke akun Anda." : "Profil satuan disimpan.");
-              } catch (e) {
-                notify((e as Error).message, true);
-              }
+              saveProfile(p);
+              notify("Profil satuan disimpan.");
             }}
           />
         )}
@@ -576,12 +549,7 @@ export default function App() {
                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
                   {avg !== null && <Badge tone={scoreTone(avg)}>Mutu {avg}/100</Badge>}
                   {analysis && <Badge tone="violet">Nilai {analysis.penilaian_sumber.keandalan}–{analysis.penilaian_sumber.kebenaran}</Badge>}
-                  {recordId && !running && Object.keys(fields).length > 0 && (
-                    <span className={cx("inline-flex items-center gap-1", saveState === "error" && "text-red-500")}>
-                      {storageMode === "supabase" ? <Cloud className="h-3 w-3" /> : <HardDrive className="h-3 w-3" />}
-                      {saveState === "saving" ? "Menyimpan…" : saveState === "error" ? "Gagal menyimpan" : storageMode === "supabase" ? "Tersimpan di cloud" : "Tersimpan di perangkat"}
-                    </span>
-                  )}
+                  {recordId && !running && Object.keys(fields).length > 0 && <span>Tersimpan otomatis</span>}
                 </div>
               </div>
               <Button size="sm" onClick={() => generate()} disabled={running}>

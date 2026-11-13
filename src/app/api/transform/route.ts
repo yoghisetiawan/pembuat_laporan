@@ -1,4 +1,3 @@
-import { requireUser } from "@/lib/supabase/server";
 import { friendlyError, hasAnthropicKey, newUsage, runText } from "@/lib/ai/client";
 import { systemBlocks } from "@/lib/ai/prompts";
 import { getTemplate } from "@/lib/templates";
@@ -15,8 +14,6 @@ const MODES: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  const denied = await requireUser();
-  if (denied) return denied;
   if (!hasAnthropicKey()) return Response.json({ error: "ANTHROPIC_API_KEY belum diatur." }, { status: 500 });
   const b = (await request.json()) as { templateId: string; fields: Record<string, string>; mode: string; pengirim?: string };
   const t = getTemplate(b.templateId);

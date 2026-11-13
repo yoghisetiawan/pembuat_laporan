@@ -10,15 +10,9 @@ export default function HistoryView({ onOpen, onDuplicate }: { onOpen: (r: Repor
   const [rows, setRows] = useState<ReportRecord[] | null>(null);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("semua");
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    listReports()
-      .then(setRows)
-      .catch((e: Error) => {
-        setRows([]);
-        setLoadError(e.message);
-      });
+    listReports().then(setRows).catch(() => setRows([]));
   }, []);
 
   const filtered = useMemo(() => {
@@ -53,13 +47,12 @@ export default function HistoryView({ onOpen, onDuplicate }: { onOpen: (r: Repor
         </select>
       </div>
 
-      {loadError && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{loadError}</div>}
       {rows === null && <div className="py-10 text-center text-sm text-slate-500">Memuat riwayat…</div>}
       {rows !== null && filtered.length === 0 && (
         <div className="card flex flex-col items-center gap-2 py-14 text-center">
           <FileX2 className="h-8 w-8 text-slate-300" />
           <div className="font-medium">{rows.length ? "Tidak ada yang cocok" : "Belum ada riwayat laporan"}</div>
-          <div className="text-sm text-slate-500">Laporan tersimpan otomatis setelah dibuat.</div>
+          <div className="text-sm text-slate-500">Laporan tersimpan otomatis di perangkat ini setelah dibuat.</div>
         </div>
       )}
       <div className="grid gap-3 md:grid-cols-2">
@@ -94,12 +87,8 @@ export default function HistoryView({ onOpen, onDuplicate }: { onOpen: (r: Repor
                   variant="danger"
                   onClick={async () => {
                     if (!confirm(`Hapus laporan "${r.title}"? Tindakan ini tidak dapat dibatalkan.`)) return;
-                    try {
-                      await deleteReport(r.id);
-                      setRows((all) => (all ?? []).filter((x) => x.id !== r.id));
-                    } catch (e) {
-                      setLoadError((e as Error).message);
-                    }
+                    await deleteReport(r.id);
+                    setRows((all) => (all ?? []).filter((x) => x.id !== r.id));
                   }}
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Hapus
