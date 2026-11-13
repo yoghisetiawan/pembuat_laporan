@@ -24,7 +24,7 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
   );
 }
 
-export default function SettingsView({ profile, onSave, health }: { profile: UnitProfile; onSave: (p: UnitProfile) => void; health: { anthropic: boolean; model: string; transcription: boolean } | null }) {
+export default function SettingsView({ profile, onSave, health }: { profile: UnitProfile; onSave: (p: UnitProfile) => void; health: { anthropic: boolean; model: string; transcription: boolean; supabase: boolean } | null }) {
   const [p, setP] = useState(profile);
   const up = <K extends keyof UnitProfile>(k: K, v: UnitProfile[K]) => setP((x) => ({ ...x, [k]: v }));
   return (
@@ -32,7 +32,7 @@ export default function SettingsView({ profile, onSave, health }: { profile: Uni
       <div className="card space-y-5 p-6">
         <div>
           <h2 className="text-lg font-semibold">Profil Satuan</h2>
-          <p className="text-sm text-slate-500">Dipakai untuk kop surat, tanda tangan, distribusi, dan sebagai konteks wilayah bagi AI. Tersimpan di perangkat ini.</p>
+          <p className="text-sm text-slate-500">Dipakai untuk kop surat, tanda tangan, distribusi, dan sebagai konteks wilayah bagi AI. Tersimpan di akun Anda (atau di perangkat ini pada mode lokal).</p>
         </div>
         <Lines label="Baris kop surat" value={p.kopBaris} onChange={(v) => up("kopBaris", v)} hint="Satu baris per tingkat, dari atas ke bawah." />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -69,6 +69,7 @@ export default function SettingsView({ profile, onSave, health }: { profile: Uni
         <Row ok={!!health?.anthropic} label="Penalaran (Claude)" detail={health?.model ?? "…"} />
         <Row ok={!!health?.transcription} label="Transkripsi berkas audio" detail={health?.transcription ? "Aktif" : "Opsional — atur GEMINI_API_KEY"} />
         <Row ok label="Dikte langsung" detail="Browser (Chrome/Edge)" />
+        <Row ok={!!health?.supabase} label="Penyimpanan cloud (Supabase)" detail={health?.supabase ? "Aktif — riwayat & profil tersinkron per akun" : "Mode lokal — data hanya di browser ini"} />
         <p className="text-xs leading-relaxed text-slate-500">Kunci API diatur di server pada berkas <code>.env.local</code>, tidak pernah dikirim ke browser.</p>
       </div>
     </div>

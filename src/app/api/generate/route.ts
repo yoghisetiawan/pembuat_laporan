@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/supabase/server";
 import { runPipeline } from "@/lib/ai/pipeline";
 import { friendlyError, hasAnthropicKey } from "@/lib/ai/client";
 import type { GenerateRequest, PipelineEvent } from "@/lib/types";
@@ -6,6 +7,8 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
+  const denied = await requireUser();
+  if (denied) return denied;
   if (!hasAnthropicKey()) {
     return Response.json({ error: "ANTHROPIC_API_KEY belum diatur di server (.env.local)." }, { status: 500 });
   }

@@ -2,21 +2,47 @@
 
 Generator laporan dinas Intelkam (LI, LHK, Infosus, LHI, Laporan Kegiatan, Laporan Harian Situasi, Rencana Kegiatan, Lapsegera & Lapju WhatsApp) dari bahan mentah lapangan: foto, foto dokumen, PDF, rekaman suara, dan catatan teks.
 
-## Menjalankan
+## Menjalankan di komputer
 
 ```bash
 npm install
-cp .env.example .env.local   # isi ANTHROPIC_API_KEY
+cp .env.example .env.local   # isi minimal ANTHROPIC_API_KEY
 npm run dev                  # http://localhost:3000
 ```
+
+Tanpa variabel Supabase, aplikasi berjalan **mode lokal**: tanpa login, riwayat disimpan di browser (IndexedDB). Mode ini hanya untuk pengembangan — di produksi API AI otomatis menolak akses tanpa login.
 
 | Variabel | Wajib | Fungsi |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | ya | Seluruh penalaran AI (Claude) |
+| `NEXT_PUBLIC_SUPABASE_URL` | produksi | URL proyek Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | produksi | Publishable/anon key Supabase |
 | `ANTHROPIC_MODEL` | tidak | Default `claude-opus-5-5` |
-| `GEMINI_API_KEY` | tidak | Transkripsi **berkas** audio. Tanpa ini, dikte langsung di browser tetap jalan |
+| `GEMINI_API_KEY` | tidak | Transkripsi **berkas** audio (dikte langsung tetap jalan tanpa ini) |
 
-Deploy ke Vercel: impor repo, isi variabel di atas. Batas body Vercel ±4,5 MB per permintaan — gambar otomatis dikompres di browser; PDF besar sebaiknya dipecah.
+## Deploy: GitHub → Vercel + Supabase
+
+### 1. Supabase (database, login, penyimpanan foto)
+1. Buat proyek di supabase.com — pilih region **Southeast Asia (Singapore)**.
+2. **SQL Editor** → tempel isi `supabase/migrations/0001_init.sql` → **Run**. Ini membuat tabel `reports` & `unit_profiles`, bucket privat `dokumentasi`, dan kebijakan RLS (setiap akun hanya melihat datanya sendiri).
+3. **Authentication → Sign In / Providers → Email**: matikan *Allow new users to sign up* (akun hanya dibuat admin).
+4. **Authentication → Users → Add user → Create new user**: buat akun untuk tiap personel (centang *Auto Confirm User*).
+5. **Project Settings → API**: salin *Project URL* dan *Publishable key*.
+6. Setelah domain Vercel ada: **Authentication → URL Configuration → Site URL** = `https://<proyek>.vercel.app`.
+
+### 2. GitHub
+Buat repositori **privat** kosong di github.com/new, lalu:
+```bash
+git remote add origin https://github.com/<akun>/<repo>.git
+git push -u origin main
+```
+
+### 3. Vercel
+1. vercel.com/new → **Import** repositori GitHub tadi.
+2. **Environment Variables**: isi `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (opsional `GEMINI_API_KEY`).
+3. **Deploy**. Setiap `git push` ke `main` otomatis men-deploy ulang. Fungsi berjalan di region Singapura (`vercel.json`).
+
+Catatan Vercel: batas body ±4,5 MB per permintaan — gambar otomatis dikompres di browser; PDF besar sebaiknya dipecah. Durasi fungsi hingga 300 detik dipakai oleh pipeline mode Mendalam.
 
 ## Apa yang lebih baik dari versi lama
 
@@ -40,14 +66,19 @@ Seluruh tahap di-*stream* ke UI (progres + ringkasan jejak penalaran). Sumber di
 - Template berbasis data (`src/lib/templates.ts`) — satu definisi untuk skema AI, editor, DOCX, dan teks. Menambah template = menambah satu objek.
 - **Profil Satuan** dapat diatur (kop, penandatangan, distribusi, wilayah) — tidak lagi hard-code.
 - Ekspor **DOCX** di browser (kertas F4, kop bergaris, penomoran bagian, tanda tangan, distribusi, lampiran foto dokumentasi).
-- Riwayat tersimpan lokal (IndexedDB), pencarian & filter, skor mutu & risiko per laporan. Klasifikasi BIASA/TERBATAS/RAHASIA.
+- Login per personel (Supabase Auth); riwayat, profil satuan, dan foto dokumentasi tersimpan di Supabase dengan RLS — tersinkron antarperangkat. Pencarian & filter, skor mutu & risiko per laporan. Klasifikasi BIASA/TERBATAS/RAHASIA.
+- Semua endpoint AI hanya bisa dipanggil pengguna yang login, sehingga kuota API tidak bisa dipakai orang lain.
 
 ## Struktur
 
 ```
+supabase/migrations/0001_init.sql                # skema, RLS, bucket storage
 src/
+  app/login/page.tsx
   app/api/{generate,refine,chat,transform,transcribe,health}/route.ts
   lib/ai/{client,prompts,schemas,pipeline}.ts   # lapisan AI (server-only)
+  lib/supabase/{config,browser,server}.ts       # klien Supabase + penjaga login
   lib/{templates,types,docx,storage,files,sse}.ts
+  proxy.ts                                       # refresh sesi & redirect ke /login
   components/                                    # UI (React 19 + Tailwind 4)
 ```

@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/supabase/server";
 import { GoogleGenAI, createPartFromUri, createUserContent } from "@google/genai";
 
 export const runtime = "nodejs";
@@ -11,6 +12,8 @@ const PROMPT = `Transkripsikan rekaman audio berbahasa Indonesia ini secara verb
 Keluarkan hanya transkripnya.`;
 
 export async function POST(request: Request) {
+  const denied = await requireUser();
+  if (denied) return denied;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return Response.json(

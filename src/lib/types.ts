@@ -9,6 +9,7 @@ export interface Attachment {
   data: string; // base64 tanpa prefix data:
   size: number;
   role: "dokumentasi" | "dokumen" | "pdf";
+  path?: string; // lokasi di Supabase Storage (bila tersimpan di cloud)
 }
 
 export interface UnitProfile {

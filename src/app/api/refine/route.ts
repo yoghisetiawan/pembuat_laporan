@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/supabase/server";
 import { hasAnthropicKey, streamText } from "@/lib/ai/client";
 import { REFINE_ACTIONS, systemBlocks } from "@/lib/ai/prompts";
 import { getTemplate } from "@/lib/templates";
@@ -17,6 +18,8 @@ interface RefineBody {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireUser();
+  if (denied) return denied;
   if (!hasAnthropicKey()) return new Response("ANTHROPIC_API_KEY belum diatur.", { status: 500 });
   const b = (await request.json()) as RefineBody;
   const t = getTemplate(b.templateId);

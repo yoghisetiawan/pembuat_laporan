@@ -1,7 +1,7 @@
 "use client";
 import type { Attachment } from "./types";
 
-export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+export const uid = () => crypto.randomUUID();
 
 function readAsDataURL(file: Blob): Promise<string> {
   return new Promise((res, rej) => {
