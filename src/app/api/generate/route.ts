@@ -1,13 +1,13 @@
 import { runPipeline } from "@/lib/ai/pipeline";
-import { friendlyError, hasAnthropicKey } from "@/lib/ai/client";
+import { friendlyError, hasAIKey } from "@/lib/ai/client";
 import type { GenerateRequest, PipelineEvent } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
-  if (!hasAnthropicKey()) {
-    return Response.json({ error: "ANTHROPIC_API_KEY belum diatur di server (.env.local)." }, { status: 500 });
+  if (!hasAIKey()) {
+    return Response.json({ error: "GEMINI_API_KEY belum diatur di server (.env.local)." }, { status: 500 });
   }
   let body: GenerateRequest;
   try {

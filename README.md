@@ -6,15 +6,14 @@ Generator laporan dinas Intelkam (LI, LHK, Infosus, LHI, Laporan Kegiatan, Lapor
 
 ```bash
 npm install
-cp .env.example .env.local   # isi ANTHROPIC_API_KEY
+cp .env.example .env.local   # isi GEMINI_API_KEY
 npm run dev                  # http://localhost:3000
 ```
 
 | Variabel | Wajib | Fungsi |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | ya | Seluruh penalaran AI (Claude) |
-| `ANTHROPIC_MODEL` | tidak | Default `claude-opus-5-5` |
-| `GEMINI_API_KEY` | tidak | Transkripsi **berkas** audio. Tanpa ini, dikte langsung di browser tetap jalan |
+| `GEMINI_API_KEY` | ya | Semua fitur AI: analisis, draf, verifikasi, revisi, chat, transkripsi audio. Buat di aistudio.google.com → Get API key |
+| `GEMINI_MODEL` | tidak | Default `gemini-3.8-flash` |
 
 Deploy ke Vercel: impor repo, isi variabel di atas. Batas body Vercel ±4,5 MB per permintaan — gambar otomatis dikompres di browser; PDF besar sebaiknya dipecah.
 
@@ -26,7 +25,7 @@ Deploy ke Vercel: impor repo, isi variabel di atas. Batas body Vercel ±4,5 MB p
 3. **Verifikasi mutu** oleh "Kanit" AI terhadap sumber asli: klaim tanpa dasar (halusinasi), fakta terlewat, inkonsistensi, bahasa, format, analisis dangkal — dengan skor 0–100.
 4. **Revisi terarah** hingga lolos verifikasi (0/1/2 putaran sesuai mode Cepat/Standar/Mendalam).
 
-Seluruh tahap di-*stream* ke UI (progres + ringkasan jejak penalaran). Sumber di-*cache* (prompt caching) sehingga tahap 2–4 jauh lebih murah. Keluaran berupa JSON terstruktur tervalidasi (Zod), dengan fallback model otomatis bila permintaan ditolak.
+Seluruh tahap di-*stream* ke UI (progres + ringkasan jejak penalaran Gemini). Sumber selalu diletakkan di awal permintaan agar cache implisit Gemini memangkas biaya tahap 2–4. Keluaran berupa JSON terstruktur tervalidasi (Zod). Kedalaman Cepat/Standar/Mendalam memetakan ke *thinking level* LOW/MEDIUM/HIGH.
 
 **Fitur AI baru**
 - **Klarifikasi interaktif**: AI mengajukan pertanyaan atas celah informasi; jawaban Anda dipakai untuk *Perkaya Laporan*.
@@ -47,7 +46,7 @@ Seluruh tahap di-*stream* ke UI (progres + ringkasan jejak penalaran). Sumber di
 ```
 src/
   app/api/{generate,refine,chat,transform,transcribe,health}/route.ts
-  lib/ai/{client,prompts,schemas,pipeline}.ts   # lapisan AI (server-only)
+  lib/ai/{client,prompts,schemas,pipeline}.ts   # lapisan AI Gemini (server-only)
   lib/{templates,types,docx,storage,files,sse}.ts
   components/                                    # UI (React 19 + Tailwind 4)
 ```

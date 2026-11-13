@@ -24,7 +24,7 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
   );
 }
 
-export default function SettingsView({ profile, onSave, health }: { profile: UnitProfile; onSave: (p: UnitProfile) => void; health: { anthropic: boolean; model: string; transcription: boolean } | null }) {
+export default function SettingsView({ profile, onSave, health }: { profile: UnitProfile; onSave: (p: UnitProfile) => void; health: { ai: boolean; model: string; transcription: boolean } | null }) {
   const [p, setP] = useState(profile);
   const up = <K extends keyof UnitProfile>(k: K, v: UnitProfile[K]) => setP((x) => ({ ...x, [k]: v }));
   return (
@@ -66,8 +66,8 @@ export default function SettingsView({ profile, onSave, health }: { profile: Uni
       </div>
       <div className="card h-fit space-y-3 p-5 text-sm">
         <div className="font-semibold">Status Mesin AI</div>
-        <Row ok={!!health?.anthropic} label="Penalaran (Claude)" detail={health?.model ?? "…"} />
-        <Row ok={!!health?.transcription} label="Transkripsi berkas audio" detail={health?.transcription ? "Aktif" : "Opsional — atur GEMINI_API_KEY"} />
+        <Row ok={!!health?.ai} label="Penalaran AI (Gemini)" detail={health?.ai ? health.model : "Belum aktif — isi GEMINI_API_KEY di .env.local"} />
+        <Row ok={!!health?.transcription} label="Transkripsi berkas audio" detail={health?.transcription ? "Aktif (Gemini)" : "Mengikuti GEMINI_API_KEY"} />
         <Row ok label="Dikte langsung" detail="Browser (Chrome/Edge)" />
         <p className="text-xs leading-relaxed text-slate-500">Kunci API diatur di server pada berkas <code>.env.local</code>, tidak pernah dikirim ke browser.</p>
       </div>

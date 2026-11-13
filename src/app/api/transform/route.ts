@@ -1,4 +1,4 @@
-import { friendlyError, hasAnthropicKey, newUsage, runText } from "@/lib/ai/client";
+import { friendlyError, hasAIKey, newUsage, runText } from "@/lib/ai/client";
 import { systemBlocks } from "@/lib/ai/prompts";
 import { getTemplate } from "@/lib/templates";
 
@@ -14,7 +14,7 @@ const MODES: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  if (!hasAnthropicKey()) return Response.json({ error: "ANTHROPIC_API_KEY belum diatur." }, { status: 500 });
+  if (!hasAIKey()) return Response.json({ error: "GEMINI_API_KEY belum diatur." }, { status: 500 });
   const b = (await request.json()) as { templateId: string; fields: Record<string, string>; mode: string; pengirim?: string };
   const t = getTemplate(b.templateId);
   const task = MODES[b.mode];
@@ -29,7 +29,6 @@ export async function POST(request: Request) {
       system: systemBlocks(),
       content: [
         {
-          type: "text",
           text: `<laporan jenis="${t.title}">\n${report}\n</laporan>\n${b.pengirim ? `Pengirim: ${b.pengirim}\n` : ""}\nTugas: ${task}\nJawab hanya dengan hasilnya.`,
         },
       ],

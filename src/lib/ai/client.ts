@@ -1,123 +1,141 @@
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import type { z } from "zod";
+import { ApiError, FinishReason, GoogleGenAI, ThinkingLevel, type Content, type Part } from "@google/genai";
+import { z } from "zod";
 import type { Usage } from "@/lib/types";
 
-export const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5";
+// Satu kunci (GEMINI_API_KEY) untuk seluruh fitur AI: analisis, draf, verifikasi,
+// revisi, chat, aksi per-bagian, dan transkripsi audio.
+export const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
-// Fallback sisi server: bila model utama menolak (refusal), API otomatis
-// menjalankan ulang permintaan di model cadangan dalam panggilan yang sama.
-const FALLBACK_BETA = "server-side-fallback-2026-07-01";
-
-let _client: Anthropic | null = null;
-export function anthropic(): Anthropic {
-  if (!_client) _client = new Anthropic({ maxRetries: 3 });
+let _client: GoogleGenAI | null = null;
+export function gemini(): GoogleGenAI {
+  if (!_client) _client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   return _client;
 }
 
-export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
-export type Block = Anthropic.Beta.BetaContentBlockParam;
-export type SystemBlock = Anthropic.Beta.BetaTextBlockParam;
+export function hasAIKey(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY);
+}
+
+export type Effort = "low" | "medium" | "high";
+export type Block = Part;
+export type History = Content[];
+
+const LEVEL: Record<Effort, ThinkingLevel> = {
+  low: ThinkingLevel.LOW,
+  medium: ThinkingLevel.MEDIUM,
+  high: ThinkingLevel.HIGH,
+};
 
 export function newUsage(): Usage {
   return { input: 0, output: 0, cacheRead: 0, calls: 0 };
 }
 
-function addUsage(u: Usage, m: Anthropic.Beta.BetaMessage) {
-  u.calls += 1;
-  u.input += (m.usage.input_tokens ?? 0) + (m.usage.cache_creation_input_tokens ?? 0);
-  u.cacheRead += m.usage.cache_read_input_tokens ?? 0;
-  u.output += m.usage.output_tokens ?? 0;
-}
-
 export class AIError extends Error {}
 
 interface RunOpts {
-  system: SystemBlock[];
+  system: string;
   content: Block[];
   effort: Effort;
   maxTokens?: number;
   usage: Usage;
   onThinking?: (text: string) => void;
   onProgress?: (chars: number) => void;
+  onText?: (delta: string) => void;
   signal?: AbortSignal;
-  history?: Anthropic.Beta.BetaMessageParam[];
+  history?: History;
 }
 
-async function streamCall(
-  opts: RunOpts,
-  outputFormat?: Anthropic.Beta.BetaJSONOutputFormat,
-): Promise<Anthropic.Beta.BetaMessage> {
-  const messages: Anthropic.Beta.BetaMessageParam[] = [
-    ...(opts.history ?? []),
-    { role: "user", content: opts.content },
-  ];
-  const stream = anthropic().beta.messages.stream(
-    {
-      model: MODEL,
-      max_tokens: opts.maxTokens ?? 32000,
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
-      thinking: { type: "adaptive", display: "summarized" },
-      output_config: { effort: opts.effort, ...(outputFormat ? { format: outputFormat } : {}) },
-      system: opts.system,
-      messages,
-    },
-    { signal: opts.signal },
-  );
+const BLOCKED = new Set<string>([
+  FinishReason.SAFETY,
+  FinishReason.BLOCKLIST,
+  FinishReason.PROHIBITED_CONTENT,
+  FinishReason.SPII,
+  FinishReason.IMAGE_SAFETY,
+  FinishReason.IMAGE_PROHIBITED_CONTENT,
+]);
 
-  let chars = 0;
+async function streamCall(opts: RunOpts, jsonSchema?: unknown): Promise<string> {
+  const stream = await gemini().models.generateContentStream({
+    model: MODEL,
+    contents: [...(opts.history ?? []), { role: "user", parts: opts.content }],
+    config: {
+      systemInstruction: opts.system,
+      maxOutputTokens: opts.maxTokens ?? 32768,
+      thinkingConfig: { includeThoughts: true, thinkingLevel: LEVEL[opts.effort] },
+      abortSignal: opts.signal,
+      ...(jsonSchema ? { responseMimeType: "application/json", responseJsonSchema: jsonSchema } : {}),
+    },
+  });
+
+  let text = "";
   let lastReport = 0;
-  for await (const event of stream) {
-    if (event.type === "content_block_delta") {
-      if (event.delta.type === "thinking_delta") {
-        opts.onThinking?.(event.delta.thinking);
-      } else if (event.delta.type === "text_delta") {
-        chars += event.delta.text.length;
-        if (chars - lastReport > 400) {
-          lastReport = chars;
-          opts.onProgress?.(chars);
+  let finish: string | undefined;
+  let blockReason: string | undefined;
+  let usageMeta: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; cachedContentTokenCount?: number } | undefined;
+
+  for await (const chunk of stream) {
+    const cand = chunk.candidates?.[0];
+    for (const part of cand?.content?.parts ?? []) {
+      if (!part.text) continue;
+      if (part.thought) {
+        opts.onThinking?.(part.text);
+      } else {
+        text += part.text;
+        opts.onText?.(part.text);
+        if (text.length - lastReport > 400) {
+          lastReport = text.length;
+          opts.onProgress?.(text.length);
         }
       }
     }
+    if (cand?.finishReason) finish = cand.finishReason;
+    if (chunk.promptFeedback?.blockReason) blockReason = chunk.promptFeedback.blockReason;
+    if (chunk.usageMetadata) usageMeta = chunk.usageMetadata;
   }
-  const msg = await stream.finalMessage();
-  addUsage(opts.usage, msg);
 
-  if (msg.stop_reason === "refusal") {
-    throw new AIError(
-      "AI menolak memproses permintaan ini karena kebijakan keamanan. Periksa kembali isi sumber atau instruksi.",
-    );
+  const u = opts.usage;
+  u.calls += 1;
+  u.input += usageMeta?.promptTokenCount ?? 0;
+  u.cacheRead += usageMeta?.cachedContentTokenCount ?? 0;
+  u.output += (usageMeta?.candidatesTokenCount ?? 0) + (usageMeta?.thoughtsTokenCount ?? 0);
+
+  if (blockReason || (finish && BLOCKED.has(finish))) {
+    throw new AIError("AI menolak memproses permintaan ini karena filter keamanan. Periksa kembali isi sumber atau instruksi.");
   }
-  if (msg.stop_reason === "max_tokens") {
+  if (finish === FinishReason.MAX_TOKENS) {
     throw new AIError("Keluaran AI terpotong (batas token). Kurangi jumlah sumber atau pilih mode yang lebih ringkas.");
   }
-  return msg;
+  if (!text.trim()) throw new AIError("AI tidak mengembalikan jawaban. Coba lagi.");
+  return text;
 }
 
-function textOf(msg: Anthropic.Beta.BetaMessage): string {
-  return msg.content
-    .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+function toJsonSchema(schema: z.ZodType): unknown {
+  const js = z.toJSONSchema(schema) as Record<string, unknown>;
+  delete js.$schema;
+  return js;
 }
 
 /** Panggilan berkeluaran JSON terstruktur yang divalidasi dengan Zod. */
 export async function runStructured<T>(opts: RunOpts & { schema: z.ZodType<T> }): Promise<T> {
-  const format = zodOutputFormat(opts.schema as never);
-  const msg = await streamCall(opts, { type: "json_schema", schema: format.schema });
+  const raw = await streamCall(opts, toJsonSchema(opts.schema));
+  let parsed: unknown;
   try {
-    return format.parse(textOf(msg)) as T;
-  } catch (e) {
-    throw new AIError(`Format keluaran AI tidak valid: ${(e as Error).message.slice(0, 300)}`);
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new AIError("Keluaran AI bukan JSON yang valid. Coba lagi.");
   }
+  const out = opts.schema.safeParse(parsed);
+  if (!out.success) {
+    const issues = out.error.issues.slice(0, 3).map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    throw new AIError(`Format keluaran AI tidak sesuai skema (${issues}). Coba lagi.`);
+  }
+  return out.data;
 }
 
 /** Panggilan teks bebas (mis. konversi WhatsApp). */
 export async function runText(opts: RunOpts): Promise<string> {
-  const msg = await streamCall(opts);
-  return textOf(msg).trim();
+  return (await streamCall(opts)).trim();
 }
 
 /** Penanda galat di dalam stream teks (klien memotong teks di penanda ini). */
@@ -129,28 +147,11 @@ export function streamText(opts: Omit<RunOpts, "usage">): ReadableStream<Uint8Ar
   return new ReadableStream({
     async start(controller) {
       try {
-        const stream = anthropic().beta.messages.stream(
-          {
-            model: MODEL,
-            max_tokens: opts.maxTokens ?? 8000,
-            betas: [FALLBACK_BETA],
-            fallbacks: "default",
-            thinking: { type: "adaptive" },
-            output_config: { effort: opts.effort },
-            system: opts.system,
-            messages: [...(opts.history ?? []), { role: "user", content: opts.content }],
-          },
-          { signal: opts.signal },
-        );
-        for await (const ev of stream) {
-          if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
-            controller.enqueue(enc.encode(ev.delta.text));
-          }
-        }
-        const msg = await stream.finalMessage();
-        if (msg.stop_reason === "refusal") {
-          controller.enqueue(enc.encode(`${STREAM_ERROR}AI menolak memproses permintaan ini.`));
-        }
+        await streamCall({
+          ...opts,
+          usage: newUsage(),
+          onText: (delta) => controller.enqueue(enc.encode(delta)),
+        });
         controller.close();
       } catch (e) {
         controller.enqueue(enc.encode(`${STREAM_ERROR}${friendlyError(e)}`));
@@ -162,15 +163,15 @@ export function streamText(opts: Omit<RunOpts, "usage">): ReadableStream<Uint8Ar
 
 export function friendlyError(e: unknown): string {
   if (e instanceof AIError) return e.message;
-  if (e instanceof Anthropic.AuthenticationError) return "Kunci API Anthropic tidak valid. Periksa ANTHROPIC_API_KEY.";
-  if (e instanceof Anthropic.RateLimitError) return "Batas permintaan API tercapai. Coba lagi beberapa saat lagi.";
-  if (e instanceof Anthropic.BadRequestError) return `Permintaan ditolak API: ${e.message}`;
-  if (e instanceof Anthropic.APIConnectionError) return "Gagal terhubung ke layanan AI. Periksa koneksi server.";
-  if (e instanceof Anthropic.APIError) return `Galat layanan AI (${e.status}): ${e.message}`;
+  if (e instanceof ApiError) {
+    if (e.status === 400 && /api key/i.test(e.message)) return "Kunci API Gemini tidak valid. Periksa GEMINI_API_KEY.";
+    if (e.status === 401 || e.status === 403) return "Kunci API Gemini tidak valid atau tidak punya akses ke model ini. Periksa GEMINI_API_KEY.";
+    if (e.status === 404) return `Model "${MODEL}" tidak ditemukan. Atur GEMINI_MODEL ke model yang tersedia.`;
+    if (e.status === 429) return "Batas kuota/permintaan Gemini tercapai. Coba lagi beberapa saat lagi atau periksa kuota di Google AI Studio.";
+    if (e.status >= 500) return "Layanan Gemini sedang bermasalah. Coba lagi beberapa saat lagi.";
+    return `Galat layanan AI (${e.status}): ${e.message.slice(0, 300)}`;
+  }
   if (e instanceof Error && e.name === "AbortError") return "Proses dibatalkan.";
+  if (e instanceof Error && /fetch failed|ENOTFOUND|ECONNRESET/i.test(e.message)) return "Gagal terhubung ke layanan AI. Periksa koneksi internet server.";
   return e instanceof Error ? e.message : String(e);
-}
-
-export function hasAnthropicKey(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 }

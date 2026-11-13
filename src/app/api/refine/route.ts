@@ -1,4 +1,4 @@
-import { hasAnthropicKey, streamText } from "@/lib/ai/client";
+import { hasAIKey, streamText } from "@/lib/ai/client";
 import { REFINE_ACTIONS, systemBlocks } from "@/lib/ai/prompts";
 import { getTemplate } from "@/lib/templates";
 import type { Analysis } from "@/lib/types";
@@ -17,7 +17,7 @@ interface RefineBody {
 }
 
 export async function POST(request: Request) {
-  if (!hasAnthropicKey()) return new Response("ANTHROPIC_API_KEY belum diatur.", { status: 500 });
+  if (!hasAIKey()) return new Response("GEMINI_API_KEY belum diatur.", { status: 500 });
   const b = (await request.json()) as RefineBody;
   const t = getTemplate(b.templateId);
   const field = t.fields.find((f) => f.key === b.fieldKey);
@@ -49,7 +49,7 @@ Jawab HANYA dengan isi baru bagian tersebut, tanpa judul bagian, tanpa pengantar
 
   const stream = streamText({
     system: systemBlocks(),
-    content: [{ type: "text", text: content }],
+    content: [{ text: content }],
     effort: "low",
     signal: request.signal,
   });

@@ -1,9 +1,8 @@
-import { friendlyError, hasAnthropicKey, newUsage, runStructured } from "@/lib/ai/client";
+import { friendlyError, hasAIKey, newUsage, runStructured, type History } from "@/lib/ai/client";
 import { systemBlocks } from "@/lib/ai/prompts";
 import { ChatReplySchema } from "@/lib/ai/schemas";
 import { getTemplate } from "@/lib/templates";
 import type { Analysis, ChatTurn } from "@/lib/types";
-import type Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,18 +16,22 @@ interface ChatBody {
 }
 
 export async function POST(request: Request) {
-  if (!hasAnthropicKey()) return Response.json({ error: "ANTHROPIC_API_KEY belum diatur." }, { status: 500 });
+  if (!hasAIKey()) return Response.json({ error: "GEMINI_API_KEY belum diatur." }, { status: 500 });
   const b = (await request.json()) as ChatBody;
   const t = getTemplate(b.templateId);
 
-  const history: Anthropic.Beta.BetaMessageParam[] = b.history.slice(-10).map((h) => ({
-    role: h.role,
-    content:
-      h.role === "assistant" && h.edits?.length
-        ? `${h.content}\n\n(Usulan perubahan pada bagian: ${h.edits.map((e) => e.field).join(", ")})`
-        : h.content,
+  const history: History = b.history.slice(-10).map((h) => ({
+    role: h.role === "assistant" ? "model" : "user",
+    parts: [
+      {
+        text:
+          h.role === "assistant" && h.edits?.length
+            ? `${h.content}\n\n(Usulan perubahan pada bagian: ${h.edits.map((e) => e.field).join(", ")})`
+            : h.content,
+      },
+    ],
   }));
-  if (history[0]?.role === "assistant") history.shift();
+  if (history[0]?.role === "model") history.shift();
 
   const fieldList = t.fields.map((f) => `- ${f.key}: ${f.label}`).join("\n");
   const content = `Anda adalah asisten penyunting yang mendampingi pelapor merevisi laporan "${t.title}".
@@ -51,7 +54,7 @@ Jawab pertanyaannya secara ringkas dan bermanfaat. Bila pelapor meminta perubaha
     const reply = await runStructured({
       system: systemBlocks(),
       history,
-      content: [{ type: "text", text: content }],
+      content: [{ text: content }],
       schema: ChatReplySchema,
       effort: "medium",
       usage: newUsage(),

@@ -47,7 +47,7 @@ import TemplatePicker from "./TemplatePicker";
 import { Badge, Button, Toast, cx, scoreTone } from "./ui";
 
 type View = "generator" | "riwayat" | "pengaturan";
-type Health = { anthropic: boolean; model: string; transcription: boolean };
+type Health = { ai: boolean; model: string; transcription: boolean };
 
 const QUICK_INSTRUCTIONS = [
   "Fokus pada potensi gangguan kamtibmas",
@@ -110,7 +110,7 @@ export default function App() {
     fetch("/api/health")
       .then((r) => r.json())
       .then(setHealth)
-      .catch(() => setHealth({ anthropic: false, model: "-", transcription: false }));
+      .catch(() => setHealth({ ai: false, model: "-", transcription: false }));
   }, []);
 
   const notify = useCallback((msg: string, err?: boolean) => {
@@ -404,7 +404,7 @@ export default function App() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            {health && !health.anthropic && <Badge tone="red">API key belum diatur</Badge>}
+            {health && !health.ai && <Badge tone="red">GEMINI_API_KEY belum diatur</Badge>}
             <button onClick={toggleTheme} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10" aria-label="Ganti tema">
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -529,7 +529,7 @@ export default function App() {
             </section>
 
             <div className="sticky bottom-4 z-20">
-              <Button variant="primary" size="lg" className="w-full shadow-xl" onClick={() => generate()} disabled={running || !health?.anthropic}>
+              <Button variant="primary" size="lg" className="w-full shadow-xl" onClick={() => generate()} disabled={running || !health?.ai}>
                 <Wand2 className="h-5 w-5" />
                 <span className="sm:hidden">Mulai Analisis AI</span>
                 <span className="hidden sm:inline">Mulai Analisis & Susun {template.title}</span>

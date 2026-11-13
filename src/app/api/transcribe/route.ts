@@ -1,4 +1,5 @@
-import { GoogleGenAI, createPartFromUri, createUserContent } from "@google/genai";
+import { createPartFromUri, createUserContent } from "@google/genai";
+import { MODEL, gemini, hasAIKey } from "@/lib/ai/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -11,20 +12,16 @@ const PROMPT = `Transkripsikan rekaman audio berbahasa Indonesia ini secara verb
 Keluarkan hanya transkripnya.`;
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { error: "Transkripsi berkas audio belum aktif (GEMINI_API_KEY belum diatur). Gunakan fitur Dikte Langsung." },
-      { status: 501 },
-    );
+  if (!hasAIKey()) {
+    return Response.json({ error: "GEMINI_API_KEY belum diatur di server (.env.local)." }, { status: 500 });
   }
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof Blob)) return Response.json({ error: "Berkas audio tidak ditemukan." }, { status: 400 });
 
   const mimeType = file.type || "audio/mpeg";
-  const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const ai = gemini();
+  const model = MODEL;
   try {
     let parts;
     if (file.size > 15 * 1024 * 1024) {

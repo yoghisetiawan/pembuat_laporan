@@ -1,11 +1,8 @@
-import { MODEL, hasAnthropicKey } from "@/lib/ai/client";
+import { MODEL, hasAIKey } from "@/lib/ai/client";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return Response.json({
-    anthropic: hasAnthropicKey(),
-    model: MODEL,
-    transcription: Boolean(process.env.GEMINI_API_KEY),
-  });
+  const ok = hasAIKey();
+  return Response.json({ ai: ok, model: MODEL, transcription: ok });
 }

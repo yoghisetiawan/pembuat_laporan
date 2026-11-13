@@ -294,7 +294,7 @@ function AudioInput({ transcript, setTranscript, transcriptionEnabled, notify }:
           {busy ? <Loader2 className="h-6 w-6 animate-spin text-brand-500" /> : <FileAudio className="h-6 w-6 text-slate-400" />}
           <div className="text-sm font-medium">{busy ? `Mentranskripsi ${busy}…` : "Unggah rekaman (MP3/M4A/WAV/OPUS)"}</div>
           <div className="text-xs text-slate-500">
-            {transcriptionEnabled ? "Transkripsi otomatis dengan penanda pembicara & waktu." : "Butuh GEMINI_API_KEY di server untuk aktif."}
+            {transcriptionEnabled ? "Transkripsi otomatis dengan penanda pembicara & waktu." : "Aktif setelah GEMINI_API_KEY diisi di server."}
           </div>
         </Dropzone>
       </div>
