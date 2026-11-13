@@ -123,7 +123,9 @@ export async function runPipeline(
       detail: `${review.temuan.length} temuan`,
     });
 
-    const needs = review.perlu_revisi || review.temuan.some((f) => f.tingkat !== "minor");
+    // Klaim tanpa dasar (isi karangan) selalu direvisi, berapa pun tingkatnya
+    const needs =
+      review.perlu_revisi || review.temuan.some((f) => f.tingkat !== "minor" || f.jenis === "klaim_tanpa_dasar");
     if (!needs || round === cfg.maxRevisions) break;
 
     emit({ type: "stage", stage: "revisi", status: "start", label: `Merevisi ${review.temuan.length} temuan` });

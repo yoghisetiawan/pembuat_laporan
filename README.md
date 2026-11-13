@@ -15,7 +15,19 @@ npm run dev                  # http://localhost:3000
 | `GEMINI_API_KEY` | ya | Semua fitur AI: analisis, draf, verifikasi, revisi, chat, transkripsi audio. Buat di aistudio.google.com → Get API key |
 | `GEMINI_MODEL` | tidak | Default `gemini-3.8-flash` |
 
-Deploy ke Vercel: impor repo, isi variabel di atas. Batas body Vercel ±4,5 MB per permintaan — gambar otomatis dikompres di browser; PDF besar sebaiknya dipecah.
+## Deploy ke Vercel
+
+Repositori: https://github.com/yoghisetiawan/laporan_awal — setiap `git push` ke `main` otomatis men-deploy ulang.
+
+1. vercel.com/new → **Import** repositori `laporan_awal`.
+2. **Environment Variables**:
+   - `GEMINI_API_KEY` — wajib.
+   - `APP_PASSWORD` — sangat disarankan; tanpa ini siapa pun yang tahu alamatnya bisa memakai kuota Gemini Anda.
+   - `GEMINI_MODEL` — opsional.
+3. **Deploy**. Fungsi berjalan di region Singapura (`vercel.json`).
+
+Batasan Vercel: body permintaan maks. ±4,5 MB. Foto otomatis dikompres di browser, tetapi PDF besar dan rekaman audio > ±4 MB perlu dipecah (atau gunakan Dikte Langsung). Riwayat laporan tersimpan di browser masing-masing pengguna.
+
 
 ## Apa yang lebih baik dari versi lama
 
