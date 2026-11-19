@@ -15,3 +15,6 @@ android-app/.gradle/
 android-app/app/build/
 android-app/*.apk
 android-app/*.aab
+
+# APK hasil build
+/*.apk

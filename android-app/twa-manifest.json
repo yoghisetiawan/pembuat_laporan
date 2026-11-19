@@ -1,0 +1,46 @@
+{
+  "packageId": "com.pembuatlaporan.ai",
+  "host": "pembuat-laporan-ai.vercel.app",
+  "name": "Pembuat Laporan AI",
+  "launcherName": "Laporan AI",
+  "display": "standalone",
+  "themeColor": "#0b0e17",
+  "themeColorDark": "#0b0e17",
+  "navigationColor": "#0b0e17",
+  "navigationColorDark": "#0b0e17",
+  "navigationDividerColor": "#0b0e17",
+  "navigationDividerColorDark": "#0b0e17",
+  "backgroundColor": "#0b0e17",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://pembuat-laporan-ai.vercel.app/icons/icon-512.png",
+  "maskableIconUrl": "https://pembuat-laporan-ai.vercel.app/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./pembuat-laporan.keystore",
+    "alias": "pembuat-laporan"
+  },
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://pembuat-laporan-ai.vercel.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": false,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "orientation": "portrait",
+  "fingerprints": [
+    {
+      "name": "pembuat-laporan",
+      "value": "5F:65:0D:AE:04:9E:5B:50:F7:F0:2B:0D:E6:70:6C:77:05:0E:46:30:93:CA:30:A1:AF:E5:98:39:23:E5:08:8E"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "minSdkVersion": 24
+}
