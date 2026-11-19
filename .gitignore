@@ -6,3 +6,12 @@ node_modules
 next-env.d.ts
 .claude/
 .vercel
+
+# APK / kunci penandatangan (JANGAN di-commit)
+android-app/*.keystore
+android-app/signing.properties
+android-app/build/
+android-app/.gradle/
+android-app/app/build/
+android-app/*.apk
+android-app/*.aab

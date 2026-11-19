@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.pembuatlaporan.ai",
+      "sha256_cert_fingerprints": [
+        "5F:65:0D:AE:04:9E:5B:50:F7:F0:2B:0D:E6:70:6C:77:05:0E:46:30:93:CA:30:A1:AF:E5:98:39:23:E5:08:8E"
+      ]
+    }
+  }
+]
