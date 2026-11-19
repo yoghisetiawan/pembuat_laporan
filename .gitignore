@@ -18,3 +18,4 @@ android-app/*.aab
 
 # APK hasil build
 /*.apk
+android-app/*.idsig
