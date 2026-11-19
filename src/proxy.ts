@@ -31,5 +31,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Berkas publik yang dibutuhkan Android/Chrome tanpa login: manifest, ikon, dan
+  // assetlinks (verifikasi aplikasi). Isinya tidak sensitif.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|\\.well-known/).*)"],
 };

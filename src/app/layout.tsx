@@ -1,8 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  themeColor: "#0b0e17",
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Pembuat Laporan AI",
+  applicationName: "Pembuat Laporan AI",
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Laporan AI", statusBarStyle: "black-translucent" },
   description: "Generator laporan dinas Intelkam berbasis AI dengan analisis bukti, verifikasi mutu, dan revisi otomatis.",
 };
 
